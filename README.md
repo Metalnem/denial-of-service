@@ -1,2 +1,3 @@
-# denial-of-service
-Denial of service attack demo using Azure Functions
+# Denial of service attack demo using Azure Functions
+
+Work in progress...
