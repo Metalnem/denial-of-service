@@ -50,7 +50,7 @@ public class Program
             using var content = new StringContent(payload);
             using var response = await client.PostAsync(url, content);
 
-            Console.WriteLine("{0} {1} {2} {3} ({4} active connections)",
+            Console.WriteLine("{0} {1} {2} ({3} active connections)",
                 stopwatch.Elapsed, response.StatusCode, response.ReasonPhrase, activeConnections);
         }
         catch (Exception ex)
