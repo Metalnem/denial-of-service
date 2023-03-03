@@ -5,16 +5,20 @@ namespace Client;
 
 public class Program
 {
-    private const int MaxConcurrentRequests = 200;
-    private static readonly TimeSpan DelayBetweenRequests = TimeSpan.FromMilliseconds(10);
-    private static readonly string Payload = GeneratePayload();
+    private static int activeConnections;
 
     public static async Task Main(string[] args)
     {
-        var url = args[0];
+        // Example usage:
+        // dotnet run 10 200 100000 https://www.example.org
 
-        using var timer = new PeriodicTimer(DelayBetweenRequests);
-        using var semaphore = new SemaphoreSlim(MaxConcurrentRequests);
+        var delayBetweenRequests = TimeSpan.FromMilliseconds(int.Parse(args[0]));
+        var maxActiveConnections = int.Parse(args[1]);
+        var payload = GeneratePayload(int.Parse(args[2]));
+        var url = args[3];
+
+        using var timer = new PeriodicTimer(delayBetweenRequests);
+        using var semaphore = new SemaphoreSlim(maxActiveConnections);
 
         while (await timer.WaitForNextTickAsync())
         {
@@ -24,7 +28,7 @@ public class Program
             {
                 try
                 {
-                    await SendRequest(url);
+                    await SendRequest(url, payload);
                 }
                 finally
                 {
@@ -34,37 +38,44 @@ public class Program
         }
     }
 
-    private static async Task SendRequest(string url)
+    private static async Task SendRequest(string url, string payload)
     {
+        Interlocked.Increment(ref activeConnections);
+
         using var client = new HttpClient();
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
-            using var content = new StringContent(Payload);
+            using var content = new StringContent(payload);
             using var response = await client.PostAsync(url, content);
 
-            Console.WriteLine($"{stopwatch.Elapsed} {response.StatusCode} {response.ReasonPhrase}");
+            Console.WriteLine("{0} {1} {2} {3} ({4} active connections)",
+                stopwatch.Elapsed, response.StatusCode, response.ReasonPhrase, activeConnections);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"{stopwatch.Elapsed} {ex.GetType().Name} {ex.Message}");
+            Console.WriteLine("{0} {1} {2} ({3} active connections)",
+                stopwatch.Elapsed, ex.GetType().Name, ex.Message, activeConnections);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref activeConnections);
         }
     }
 
-    private static string GeneratePayload()
+    private static string GeneratePayload(int depth)
     {
-        var iterations = 100_000;
         var sb = new StringBuilder();
 
-        for (int i = 0; i < iterations; ++i)
+        for (int i = 0; i < depth; ++i)
         {
             sb.Append("{\"A\":");
         }
 
         sb.Append("{}");
 
-        for (int i = 0; i < iterations; ++i)
+        for (int i = 0; i < depth; ++i)
         {
             sb.Append('}');
         }
